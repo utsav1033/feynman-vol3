@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feynman Lectures Vol. III — with demos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --paper:#f3f4f1; --panel:#ffffff; --ink:#1c2426; --muted:#5d6a6c; --line:#d5dad6;
+  --accent:#2f6b5c; --board:#22403a; --board-edge:#18302b;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141a1b; --panel:#1b2324; --ink:#e4eae7; --muted:#9aa8a6; --line:#2c3638;
+    --accent:#8fcfb9; --board:#1d3631; --board-edge:#10211d;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141a1b; --panel:#1b2324; --ink:#e4eae7; --muted:#9aa8a6; --line:#2c3638;
+  --accent:#8fcfb9; --board:#1d3631; --board-edge:#10211d;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+  font:15px/1.45 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+a{color:var(--accent)}
+
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font:600 18px/1.2 Literata,Georgia,serif;margin:0 8px 0 0;white-space:nowrap}
+header h1 span{font-weight:400;color:var(--muted)}
+.chapnav{display:flex;gap:6px;align-items:center;flex:1;min-width:260px}
+.chapnav select{flex:1;min-width:0;max-width:520px}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);min-height:0}
+
+/* demo side */
+.demo{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.demo-head{padding:12px 16px 8px}
+.demo-head h2{font:600 21px/1.25 Literata,Georgia,serif;margin:0}
+.demo-head .ch{color:var(--muted);font-size:13px;margin-bottom:2px}
+.demo-head p{margin:6px 0 0;color:var(--muted);max-width:68ch}
+.stage{flex:1;min-height:300px;margin:4px 16px 0;background:var(--board);border:6px solid var(--board-edge);border-radius:4px;position:relative}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;padding:12px 16px 16px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px;font-size:14px}
+.ctl input[type=range]{width:130px;accent-color:var(--accent)}
+.ctl input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.ctl output{min-width:3.2em;color:var(--muted);font-variant-numeric:tabular-nums}
+.ctl-row{display:flex;gap:6px}
+
+/* book side */
+.book{display:flex;flex-direction:column;min-height:0;background:var(--paper)}
+.book-bar{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.book-bar input[type=number]{width:4.5em;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.book-bar .sp{flex:1}
+.book-bar .muted{color:var(--muted);font-size:13px}
+.pages{flex:1;overflow:auto;padding:12px;position:relative;min-height:0}
+.pg{margin:0 auto 12px;background:#fff;box-shadow:0 0 0 1px var(--line);position:relative}
+.pg canvas{display:block;width:100%;height:100%}
+#holdDemo[aria-pressed=true]{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.empty{max-width:40ch;margin:10vh auto 0;text-align:left}
+.empty h3{font:600 20px/1.3 Literata,Georgia,serif;margin:0 0 8px}
+.empty p{color:var(--muted);margin:0 0 14px}
+.empty .actions{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.primary{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.hidden{display:none!important}
+
+@media (max-width: 900px){
+  main{grid-template-columns:1fr;grid-template-rows:auto auto}
+  body{height:auto}.app{height:auto}
+  .demo{border-right:0;border-bottom:1px solid var(--line)}
+  .stage{height:62vh;flex:none}
+  .pages{height:85vh;flex:none}
+}
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Feynman Lectures <span>Vol. III</span></h1>
+    <div class="chapnav">
+      <button id="prevCh" aria-label="Previous chapter">‹</button>
+      <select id="chapSel" aria-label="Chapter"></select>
+      <button id="nextCh" aria-label="Next chapter">›</button>
+    </div>
+  </header>
+  <main>
+    <section class="demo" aria-label="Demo">
+      <div class="demo-head">
+        <div class="ch" id="chLabel"></div>
+        <h2 id="demoTitle"></h2>
+        <p id="demoBlurb"></p>
+      </div>
+      <div class="stage" id="stage"><canvas id="cv"></canvas></div>
+      <div class="controls" id="controls"></div>
+    </section>
+    <section class="book" aria-label="Book">
+      <div class="book-bar" id="bookBar">
+        <button id="pgPrev" aria-label="Previous page">‹</button>
+        <input type="number" id="pgNum" min="1" value="1" aria-label="Page">
+        <span class="muted" id="pgTotal"></span>
+        <button id="pgNext" aria-label="Next page">›</button>
+        <span class="sp"></span>
+        <span class="muted" id="autoStatus" aria-live="polite"></span>
+        <button id="holdDemo" aria-pressed="false" title="Keep the current demo while you read other chapters">Hold demo</button>
+        <button id="markStart" title="If the automatic jump lands on the wrong page, go to the right one and press this">Fix chapter start</button>
+        <button id="openOther">Open PDF</button>
+      </div>
+      <div class="pages" id="pages">
+        <div class="empty" id="empty">
+          <h3>Put the book beside the demo</h3>
+          <p>Open your PDF copy of Volume III and it will sit here, next to each chapter's demo. The file stays in this browser; nothing is uploaded.</p>
+          <div class="actions">
+            <button class="primary" id="openPdf">Open PDF</button>
+            <a id="onlineLink" target="_blank" rel="noopener">Read this chapter free on the Caltech site</a>
+          </div>
+        </div>
+        <div id="pageList" class="hidden"></div>
+      </div>
+      <input type="file" id="fileIn" accept="application/pdf" class="hidden">
+    </section>
+  </main>
+</div>
+<script>
+/* ============ drawing helpers ============ */
+const K={chalk:'#efeadb',faint:'rgba(239,234,219,.28)',dim:'rgba(239,234,219,.55)',yellow:'#f4d56e',blue:'#8cc8ec',pink:'#f4a0b8',green:'#a6e3a1',orange:'#f5b27a'};
+const FONT='"Public Sans",system-ui,sans-serif';
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function ln(g,x1,y1,x2,y2,c=K.chalk,w=2,dash){g.save();g.strokeStyle=c;g.lineWidth=w;if(dash)g.setLineDash(dash);g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.restore();}
+function txt(g,s,x,y,c=K.chalk,size=13,align='left',base='alphabetic'){g.fillStyle=c;g.font=`${size}px ${FONT}`;g.textAlign=align;g.textBaseline=base;g.fillText(s,x,y);}
+function arrow(g,x1,y1,x2,y2,c=K.chalk,w=2){ln(g,x1,y1,x2,y2,c,w);const a=Math.atan2(y2-y1,x2-x1),L=Math.min(9,Math.hypot(x2-x1,y2-y1)*.5);g.fillStyle=c;g.beginPath();g.moveTo(x2,y2);g.lineTo(x2-L*Math.cos(a-.4),y2-L*Math.sin(a-.4));g.lineTo(x2-L*Math.cos(a+.4),y2-L*Math.sin(a+.4));g.closePath();g.fill();}
+function dot(g,x,y,r,c){g.fillStyle=c;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}
+function ring(g,x,y,r,c,w=2){g.strokeStyle=c;g.lineWidth=w;g.beginPath();g.arc(x,y,r,0,TAU);g.stroke();}
+function mapper(b,x0,x1,y0,y1){return{X:u=>b.x+(u-x0)/(x1-x0)*b.w,Y:v=>b.y+b.h-(v-y0)/(y1-y0)*b.h};}
+function curve(g,b,x0,x1,y0,y1,fn,c,w=2,opt={}){const m=mapper(b,x0,x1,y0,y1),N=opt.n||320;g.save();g.beginPath();g.rect(b.x-2,b.y-2,b.w+4,b.h+4);g.clip();g.beginPath();
+  for(let i=0;i<=N;i++){const u=x0+(x1-x0)*i/N,v=fn(u);const X=m.X(u),Y=m.Y(v);i?g.lineTo(X,Y):g.moveTo(X,Y);}
+  if(opt.fill){g.lineTo(m.X(x1),m.Y(opt.base||0));g.lineTo(m.X(x0),m.Y(opt.base||0));g.closePath();g.fillStyle=opt.fill;g.fill();}
+  else{g.strokeStyle=c;g.lineWidth=w;if(opt.dash)g.setLineDash(opt.dash);g.stroke();}g.restore();return m;}
+function axes(g,b,xl,yl){ln(g,b.x,b.y+b.h,b.x+b.w,b.y+b.h,K.dim,1.2);ln(g,b.x,b.y,b.x,b.y+b.h,K.dim,1.2);if(xl)txt(g,xl,b.x+b.w,b.y+b.h+16,K.dim,12,'right');if(yl)txt(g,yl,b.x+4,b.y-6,K.dim,12);}
+function split(W,H,frac=.5,pad=22){if(W>620){const w1=(W-pad*3)*frac;return[{x:pad,y:pad+8,w:w1,h:H-pad*2-18},{x:pad*2+w1,y:pad+8,w:W-pad*3-w1,h:H-pad*2-18}];}
+  const h1=(H-pad*3)*frac;return[{x:pad,y:pad+6,w:W-pad*2,h:h1-8},{x:pad,y:pad*2+h1+6,w:W-pad*2,h:H-pad*3-h1-14}];}
+function legend(g,x,y,items){items.forEach(([c,s],i)=>{ln(g,x,y+i*17-4,x+16,y+i*17-4,c,3);txt(g,s,x+22,y+i*17,K.chalk,12);});}
+const sinc=x=>Math.abs(x)<1e-6?1:Math.sin(x)/x;
+function fmt(v,d=2){return (Math.abs(v)<1e-3&&v!==0)?v.toExponential(1):v.toFixed(d);}
+
+/* 1D Schrödinger solver (ħ=m=1), RK4 */
+function Solver(N,x0,x1,Vf){const s={N,dx:(x1-x0)/(N-1),x:new Float64Array(N),V:new Float64Array(N),re:new Float64Array(N),im:new Float64Array(N),t:0};
+  for(let j=0;j<N;j++){s.x[j]=x0+j*s.dx;}
+  s.setV=f=>{for(let j=0;j<N;j++)s.V[j]=f(s.x[j]);};s.setV(Vf);
+  const kr=[0,1,2,3].map(()=>new Float64Array(N)),ki=[0,1,2,3].map(()=>new Float64Array(N)),tr=new Float64Array(N),ti=new Float64Array(N);
+  function deriv(r,i,outr,outi){const c=1/(2*s.dx*s.dx);outr[0]=outi[0]=outr[N-1]=outi[N-1]=0;
+    for(let j=1;j<N-1;j++){const hr=-(r[j+1]-2*r[j]+r[j-1])*c+s.V[j]*r[j];const hi=-(i[j+1]-2*i[j]+i[j-1])*c+s.V[j]*i[j];outr[j]=hi;outi[j]=-hr;}}
+  s.step=dt=>{const r=s.re,i=s.im;deriv(r,i,kr[0],ki[0]);
+    for(let j=0;j<N;j++){tr[j]=r[j]+.5*dt*kr[0][j];ti[j]=i[j]+.5*dt*ki[0][j];}deriv(tr,ti,kr[1],ki[1]);
+    for(let j=0;j<N;j++){tr[j]=r[j]+.5*dt*kr[1][j];ti[j]=i[j]+.5*dt*ki[1][j];}deriv(tr,ti,kr[2],ki[2]);
+    for(let j=0;j<N;j++){tr[j]=r[j]+dt*kr[2][j];ti[j]=i[j]+dt*ki[2][j];}deriv(tr,ti,kr[3],ki[3]);
+    for(let j=0;j<N;j++){r[j]+=dt/6*(kr[0][j]+2*kr[1][j]+2*kr[2][j]+kr[3][j]);i[j]+=dt/6*(ki[0][j]+2*ki[1][j]+2*ki[2][j]+ki[3][j]);}s.t+=dt;};
+  s.init=f=>{let n=0;for(let j=0;j<N;j++){const [a,b]=f(s.x[j]);s.re[j]=a;s.im[j]=b;n+=a*a+b*b;}n=Math.sqrt(n*s.dx);for(let j=0;j<N;j++){s.re[j]/=n;s.im[j]/=n;}s.t=0;};
+  s.prob=j=>s.re[j]*s.re[j]+s.im[j]*s.im[j];
+  return s;}
+function drawPsi(g,b,s,ymax,col=K.yellow){const m=mapper(b,s.x[0],s.x[s.N-1],0,ymax);g.beginPath();g.moveTo(m.X(s.x[0]),m.Y(0));
+  for(let j=0;j<s.N;j++)g.lineTo(m.X(s.x[j]),m.Y(Math.min(s.prob(j),ymax*1.05)));g.lineTo(m.X(s.x[s.N-1]),m.Y(0));g.closePath();g.fillStyle='rgba(244,213,110,.35)';g.fill();
+  g.beginPath();for(let j=0;j<s.N;j++){const X=m.X(s.x[j]),Y=m.Y(Math.min(s.prob(j),ymax*1.05));j?g.lineTo(X,Y):g.moveTo(X,Y);}g.strokeStyle=col;g.lineWidth=2;g.stroke();return m;}
+</script>
+<script>
+/* ---------- Ch 1: double slit ---------- */
+function dSlit(){let bins=new Float32Array(90),hits=[],acc=0,n=0;
+  const I=(u,P)=>{const env=sinc(Math.PI*.8*u/P.lam)**2,d=TAU*P.d*u/P.lam;if(!P.s1&&!P.s2)return 0;if(!(P.s1&&P.s2))return env;return P.watch?2*env:4*env*Math.cos(d/2)**2;};
+  const clear=()=>{bins.fill(0);hits=[];n=0;};
+  return{title:'Electrons through two slits, one at a time',
+  blurb:'Each electron lands at a single spot, yet the pile of spots builds the interference pattern. Close a slit, or shine light to see which slit each one used, and the fringes go away.',
+  controls:[{k:'s1',label:'Slit 1',type:'check',value:1},{k:'s2',label:'Slit 2',type:'check',value:1},{k:'watch',label:'Watch with light',type:'check',value:0},
+    {k:'d',label:'Slit spacing',min:1,max:6,value:3,step:.1,dp:1},{k:'lam',label:'Wavelength',min:.5,max:2,value:1,step:.05},{k:'rate',label:'Electrons/s',min:5,max:600,value:120,step:5,dp:0},{k:'clear',label:'Clear screen',type:'button'}],
+  on(k){clear();},
+  step(dt,P){acc+=P.rate*dt;const mx=P.s1&&P.s2?(P.watch?2:4):1;if(!P.s1&&!P.s2){acc=0;return;}
+    while(acc>=1){acc--;let u,tries=0;do{u=Math.random()*2-1;tries++;}while(Math.random()*mx>I(u,P)&&tries<500);
+      bins[Math.min(89,Math.floor((u+1)/2*90))]++;hits.push([u,Math.random(),1]);n++;if(hits.length>6000)hits.shift();}
+    for(const h of hits)if(h[2]>0)h[2]-=dt*2;},
+  draw(g,W,H,P){const cy=H/2,hh=H*.4,wx=W*.24,sx=W*.46,sep=10+P.d*7,slitH=8;
+    // gun
+    g.fillStyle=K.faint;g.fillRect(18,cy-12,34,24);txt(g,'electron gun',18,cy+30,K.dim,12);
+    // wall
+    const seg=(y1,y2)=>ln(g,wx,y1,wx,y2,K.chalk,5);
+    seg(cy-hh,cy-sep-slitH);seg(cy-sep+slitH,cy+sep-slitH);seg(cy+sep+slitH,cy+hh);
+    if(!P.s1)seg(cy-sep-slitH,cy-sep+slitH);if(!P.s2)seg(cy+sep-slitH,cy+sep+slitH);
+    txt(g,'1',wx-14,cy-sep+4,K.dim,12);txt(g,'2',wx-14,cy+sep+4,K.dim,12);
+    if(P.watch){const r=g.createRadialGradient(wx+22,cy,2,wx+22,cy,40);r.addColorStop(0,'rgba(244,213,110,.9)');r.addColorStop(1,'rgba(244,213,110,0)');g.fillStyle=r;g.beginPath();g.arc(wx+22,cy,40,0,TAU);g.fill();}
+    // screen
+    g.fillStyle='rgba(0,0,0,.18)';g.fillRect(sx,cy-hh,34,hh*2);
+    for(const h of hits){const y=cy-h[0]*hh;dot(g,sx+3+h[1]*28,y,1.1,h[2]>0?K.yellow:K.chalk);}
+    // histogram
+    const bx=sx+46,bw=W-bx-18;let mb=1;for(const b of bins)mb=Math.max(mb,b);
+    g.fillStyle='rgba(140,200,236,.55)';for(let i=0;i<90;i++){const u0=i/90*2-1,y=cy-(u0+2/90)*hh;g.fillRect(bx,y,bins[i]/mb*bw*.9,hh*2/90-1);}
+    let mx=1e-9;for(let i=0;i<=400;i++)mx=Math.max(mx,I(i/200-1,P));const scale=bw*.9;
+    const path=(f,c,dash)=>{g.save();g.strokeStyle=c;g.lineWidth=2;if(dash)g.setLineDash(dash);g.beginPath();for(let i=0;i<=300;i++){const u=i/150-1,x=bx+f(u)*scale,y=cy-u*hh;i?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();g.restore();};
+    if(P.s1||P.s2){path(u=>I(u,P)/mx,K.yellow,[5,4]);if(P.s1&&P.s2&&!P.watch)path(u=>2*sinc(Math.PI*.8*u/P.lam)**2/mx,K.faint);}
+    txt(g,`${n} electrons`,bx,cy-hh-8,K.chalk,13);
+    legend(g,bx,cy+hh+14,[[K.yellow,'predicted |φ₁+φ₂|²'],...(P.s1&&P.s2&&!P.watch?[[K.faint,'P₁+P₂ (no interference)']]:[])]);
+  }};}
+
+/* ---------- Ch 2: wave packet & uncertainty ---------- */
+function packet(){let t=0;const M=41;
+  return{title:'Squeeze the spread in wavenumber, the packet spreads in space',
+  blurb:'A packet is a sum of waves. Narrow the range of wavenumbers (Δk) and the packet gets longer (Δx). Their product never drops below one half.',
+  controls:[{k:'k0',label:'Centre k₀',min:3,max:12,value:6,step:.1,dp:1},{k:'sk',label:'Δk',min:.2,max:3,value:1,step:.05},{k:'comps',label:'Show component waves',type:'check',value:1}],
+  step(dt){t+=dt*2;},
+  draw(g,W,H,P){const[a,b]=split(W,H,.3);const ks=[],ws=[];for(let j=0;j<M;j++){const k=P.k0+(j/(M-1)*2-1)*3*P.sk;ks.push(k);ws.push(Math.exp(-((k-P.k0)**2)/(4*P.sk*P.sk)));}
+    // spectrum
+    axes(g,a,'k','amplitude');const kmin=0,kmax=P.k0+10;const mS=mapper(a,kmin,kmax,0,1.1);
+    for(let j=0;j<M;j++)ln(g,mS.X(ks[j]),mS.Y(0),mS.X(ks[j]),mS.Y(ws[j]),K.blue,2);
+    txt(g,'Δk = '+P.sk.toFixed(2),a.x+a.w-4,a.y+14,K.chalk,13,'right');
+    const psi=x=>{let re=0,im=0;for(let j=0;j<M;j++){const ph=ks[j]*x-P.k0*t;re+=ws[j]*Math.cos(ph);im+=ws[j]*Math.sin(ph);}return[re,im];};
+    let norm=0;for(const w of ws)norm+=w;const L=12;
+    // Δx from |ψ|²
+    let s0=0,s1=0,s2=0;for(let i=0;i<=600;i++){const x=-L+i/600*2*L,[r,im]=psi(x),p=r*r+im*im;s0+=p;s1+=p*x;s2+=p*x*x;}const dx=Math.sqrt(s2/s0-(s1/s0)**2);
+    if(P.comps){const cb={x:b.x,y:b.y,w:b.w,h:b.h*.32};for(let j=0;j<M;j+=5)curve(g,cb,-L,L,-1.2,1.2,x=>ws[j]*Math.cos(ks[j]*x-P.k0*t),'rgba(140,200,236,.45)',1.2);txt(g,'a few of the waves being added',cb.x,cb.y-4,K.dim,12);}
+    const pb=P.comps?{x:b.x,y:b.y+b.h*.42,w:b.w,h:b.h*.58}:b;axes(g,pb,'x','');
+    const mid={x:pb.x,y:pb.y,w:pb.w,h:pb.h};
+    curve(g,mid,-L,L,-1.1,1.1,x=>psi(x)[0]/norm,K.chalk,1.5);
+    curve(g,mid,-L,L,-1.1,1.1,x=>Math.hypot(...psi(x))/norm,K.yellow,2);
+    curve(g,mid,-L,L,-1.1,1.1,x=>-Math.hypot(...psi(x))/norm,K.yellow,2);
+    txt(g,`Δx = ${dx.toFixed(2)}    Δx·Δk = ${(dx*P.sk).toFixed(2)}`,pb.x+pb.w-4,pb.y+14,K.chalk,13,'right');
+  }};}
+
+/* ---------- Ch 3: adding amplitudes (phasor chain) ---------- */
+function phasors(){return{title:'Add the arrows, then square',
+  blurb:'Each slit of a grating contributes an arrow; moving along the screen turns each arrow a bit more than the last. The chance of arrival is the square of the arrow sum.',
+  controls:[{k:'N',label:'Slits',min:1,max:12,value:5,step:1,dp:0},{k:'u',label:'Screen position',min:-1,max:1,value:.12,step:.002},{k:'sweep',label:'Sweep',type:'check',value:1}],
+  step(dt,P){if(P.sweep){let u=P.u+dt*.12;if(u>1)u=-1;ui.set('u',{value:u});}},
+  draw(g,W,H,P){const[a,b]=split(W,H,.45);const N=P.N|0,phi=TAU*1.5*P.u,I=u=>{const f=TAU*1.5*u;let r=0,i=0;for(let n=0;n<N;n++){r+=Math.cos(n*f);i+=Math.sin(n*f);}return(r*r+i*i)/(N*N);};
+    const pts=[[0,0]];for(let n=0;n<N;n++){const[p,q]=pts[n];pts.push([p+Math.cos(n*phi),q-Math.sin(n*phi)]);}
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(const[p,q]of pts){x0=Math.min(x0,p);x1=Math.max(x1,p);y0=Math.min(y0,q);y1=Math.max(y1,q);}
+    const L=Math.min(a.w,a.h)*.8/N,cx=a.x+a.w/2-(x0+x1)/2*L,cy=a.y+a.h/2-(y0+y1)/2*L;
+    for(let n=0;n<N;n++)arrow(g,cx+pts[n][0]*L,cy+pts[n][1]*L,cx+pts[n+1][0]*L,cy+pts[n+1][1]*L,K.blue,2);
+    arrow(g,cx,cy,cx+pts[N][0]*L,cy+pts[N][1]*L,K.yellow,3);
+    txt(g,'amplitude from each slit',a.x,a.y+a.h+14,K.blue,12);txt(g,'sum',a.x+160,a.y+a.h+14,K.yellow,12);
+    axes(g,b,'screen position','probability');const m=curve(g,b,-1,1,0,1.1,I,K.chalk,2);
+    ln(g,m.X(P.u),b.y,m.X(P.u),b.y+b.h,K.faint,1);dot(g,m.X(P.u),m.Y(I(P.u)),5,K.yellow);
+    txt(g,'|sum|² = '+I(P.u).toFixed(3),b.x+b.w-4,b.y+14,K.chalk,13,'right');}};}
+
+/* ---------- Ch 4: identical particles ---------- */
+function identical(){return{title:'Two ways to reach the same detectors',
+  blurb:'When two identical particles scatter, “a goes to detector 1” and “b goes to detector 1” cannot be told apart. For bosons the amplitudes add; for fermions they subtract. At 90° bosons double up and fermions never arrive.',
+  controls:[{k:'th',label:'Detector angle θ',min:0,max:180,value:60,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'al',label:'Phase twist of f(θ)',min:0,max:4,value:1.5,step:.05}],
+  draw(g,W,H,P){const[a,b]=split(W,H,.42);const f=th=>{const m=1.3+Math.cos(th);return[m*Math.cos(P.al*th),m*Math.sin(P.al*th)];};
+    const D=th=>{const[p,q]=f(th),[r,s]=f(Math.PI-th);return p*p+q*q+r*r+s*s;},B=th=>{const[p,q]=f(th),[r,s]=f(Math.PI-th);return(p+r)**2+(q+s)**2;},F=th=>{const[p,q]=f(th),[r,s]=f(Math.PI-th);return(p-r)**2+(q-s)**2;};
+    const th=P.th*Math.PI/180,cx=a.x+a.w/2,cy=a.y+a.h/2,R=Math.min(a.w,a.h)*.42;
+    arrow(g,cx-R,cy,cx-14,cy,K.chalk,2);arrow(g,cx+R,cy,cx+14,cy,K.chalk,2);txt(g,'a',cx-R,cy-8,K.chalk,13);txt(g,'b',cx+R-8,cy-8,K.chalk,13);
+    const d1=[cx+R*Math.cos(-th+Math.PI),cy+R*Math.sin(-th+Math.PI)],d2=[cx-R*Math.cos(-th+Math.PI),cy-R*Math.sin(-th+Math.PI)];
+    ring(g,d1[0],d1[1],9,K.yellow);ring(g,d2[0],d2[1],9,K.yellow);txt(g,'D1',d1[0]+12,d1[1],K.yellow,12);txt(g,'D2',d2[0]+12,d2[1],K.yellow,12);
+    ln(g,cx,cy,d1[0],d1[1],K.blue,2);ln(g,cx,cy,d2[0],d2[1],K.pink,2,[5,4]);
+    txt(g,'a→D1, b→D2 : amplitude f(θ)',a.x,a.y+a.h-18,K.blue,12);txt(g,'a→D2, b→D1 : amplitude f(π−θ)',a.x,a.y+a.h-2,K.pink,12);
+    let ym=0;for(let i=0;i<=180;i++)ym=Math.max(ym,B(i*Math.PI/180));axes(g,b,'θ (degrees)','counts in D1');
+    const deg=fn=>x=>fn(x*Math.PI/180);curve(g,b,0,180,0,ym*1.1,deg(D),K.chalk,2);curve(g,b,0,180,0,ym*1.1,deg(B),K.blue,2);const m=curve(g,b,0,180,0,ym*1.1,deg(F),K.pink,2);
+    ln(g,m.X(P.th),b.y,m.X(P.th),b.y+b.h,K.faint,1);
+    legend(g,b.x+b.w-190,b.y+14,[[K.chalk,`different particles ${D(th).toFixed(2)}`],[K.blue,`bosons ${B(th).toFixed(2)}`],[K.pink,`fermions, same spin ${F(th).toFixed(2)}`]]);}};}
+
+/* ---------- Ch 5: spin one, tilted Stern-Gerlach ---------- */
+function spinOne(){let parts=[],acc=0,cnt=[0,0,0];
+  return{title:'Filter spin +1, then ask a tilted apparatus',
+  blurb:'Apparatus S passes only the + beam. Apparatus T is tilted by α and splits that beam three ways, with chances (1+cos α)²/4, sin²α/2 and (1−cos α)²/4.',
+  controls:[{k:'al',label:'Tilt α',min:0,max:180,value:60,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'reset',label:'Reset counts',type:'button'}],
+  on(k){cnt=[0,0,0];},
+  step(dt,P){acc+=dt*40;while(acc>=1){acc--;parts.push({s:0,b1:Math.floor(Math.random()*3),b2:-1});}
+    const c=Math.cos(P.al*Math.PI/180),pr=[(1+c)**2/4,(1-c*c)/2,(1-c)**2/4];
+    for(const p of parts){p.s+=dt*.28;if(p.s>.5&&p.b1===0&&p.b2<0){const r=Math.random();p.b2=r<pr[0]?0:r<pr[0]+pr[1]?1:2;}}
+    parts=parts.filter(p=>{if(p.b1!==0&&p.s>.3)return false;if(p.s>1){cnt[p.b2]++;return false;}return true;});},
+  draw(g,W,H,P){const wide=W>620,cy=wide?H*.45:H*.35,Sx=W*.22,Tx=W*.52,end=wide?W*.72:W-20,ys=[-34,0,34];
+    const box=(x,rot,label)=>{g.save();g.translate(x,cy);g.rotate(rot);g.strokeStyle=K.chalk;g.lineWidth=2;g.strokeRect(-22,-26,44,52);g.restore();txt(g,label,x,cy-40,K.chalk,14,'center');};
+    box(Sx,0,'S');box(Tx,P.al*Math.PI/180,'T');txt(g,'α = '+P.al.toFixed(0)+'°',Tx,cy+48,K.dim,12,'center');
+    ln(g,20,cy,Sx-22,cy,K.faint,1);ln(g,Sx+22,cy+ys[1],Sx+70,cy+ys[1],K.faint,1);ln(g,Sx+22,cy,Sx+70,cy+ys[2],K.faint,1);
+    ln(g,Sx+70,cy-12,Sx+70,cy+44,K.pink,4);txt(g,'blocked',Sx+78,cy+44,K.pink,11);
+    const c=Math.cos(P.al*Math.PI/180),pr=[(1+c)**2/4,(1-c*c)/2,(1-c)**2/4];
+    const pos=p=>{const s=p.s;if(s<.2)return[20+(Sx-20)*s/.2,cy];
+      if(p.b1!==0){const q=(s-.2)/.1;return[Sx+q*48,cy+ys[p.b1]*q];}
+      if(s<.5){const q=(s-.2)/.3;const y=q<.3?cy+ys[0]*q/.3:q>.7?cy+ys[0]*(1-q)/.3:cy+ys[0];return[Sx+(Tx-Sx)*q,y];}
+      const q=(s-.5)/.5;return[Tx+(end-Tx)*q,cy+ys[p.b2]*Math.min(1,q*3)];};
+    ys.forEach((y,i)=>{g.globalAlpha=.25+.75*pr[i];ln(g,Tx+22,cy,Tx+50,cy+y,K.yellow,1+8*pr[i]);ln(g,Tx+50,cy+y,end,cy+y,K.yellow,1+8*pr[i]);g.globalAlpha=1;txt(g,['+','0','−'][i],end+6,cy+y+4,K.yellow,13);});
+    for(const p of parts){const[x,y]=pos(p);dot(g,x,y,2.2,K.chalk);}
+    // bars
+    const tot=cnt[0]+cnt[1]+cnt[2]||1,bx=wide?W*.78:40,by=wide?H*.2:H*.62,bw=wide?W*.19:W-80,bh=wide?H*.6:H*.3;
+    txt(g,`after T  (${cnt[0]+cnt[1]+cnt[2]} atoms)`,bx,by-8,K.chalk,12);
+    for(let i=0;i<3;i++){const x=bx+i*bw/3+6,w=bw/3-12;g.fillStyle='rgba(244,213,110,.45)';g.fillRect(x,by+bh*(1-cnt[i]/tot),w,bh*cnt[i]/tot);ln(g,x-2,by+bh*(1-pr[i]),x+w+2,by+bh*(1-pr[i]),K.chalk,2);txt(g,['+','0','−'][i],x+w/2,by+bh+16,K.chalk,13,'center');txt(g,pr[i].toFixed(2),x+w/2,by+bh*(1-pr[i])-5,K.chalk,11,'center');}
+    ln(g,bx,by+bh,bx+bw,by+bh,K.dim,1);}};}
+
+/* ---------- Ch 6: spin one-half on a sphere ---------- */
+function spinHalf(){let cnt=[0,0];const yaw=-.6,pit=.35;
+  const proj=(v,cx,cy,R)=>{const x1=v[0]*Math.cos(yaw)-v[1]*Math.sin(yaw),y1=v[0]*Math.sin(yaw)+v[1]*Math.cos(yaw);return[cx+R*x1,cy-R*(v[2]*Math.cos(pit)-y1*Math.sin(pit))];};
+  return{title:'A spin-½ state is a direction; measurement asks a yes/no question',
+  blurb:'The arrow is the spin state. Measuring along the blue axis gives “up” with chance cos²(angle/2). Turn on the magnetic field to watch the state precess.',
+  controls:[{k:'th',label:'State θ',min:0,max:180,value:60,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'ph',label:'State φ',min:0,max:360,value:20,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'al',label:'Measure along',min:0,max:180,value:0,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'B',label:'Field along z (precess)',type:'check',value:0},{k:'meas',label:'Measure 100 atoms',type:'button'},{k:'reset',label:'Reset counts',type:'button'}],
+  on(k,P){if(k==='reset'||k==='al'||k==='th'||k==='ph')cnt=[0,0];if(k==='meas'){const p=this.p(P);for(let i=0;i<100;i++)cnt[Math.random()<p?0:1]++;}},
+  p(P){const t=P.th*Math.PI/180,f=P.ph*Math.PI/180,a=P.al*Math.PI/180;return(1+Math.sin(t)*Math.cos(f)*Math.sin(a)+Math.cos(t)*Math.cos(a))/2;},
+  step(dt,P){if(P.B)ui.set('ph',{value:(P.ph+dt*70)%360});},
+  draw(g,W,H,P){const[a,b]=split(W,H,.55);const cx=a.x+a.w/2,cy=a.y+a.h/2,R=Math.min(a.w,a.h)*.4;
+    ring(g,cx,cy,R,K.faint,1.5);
+    const circ=(fn,c,w)=>{g.beginPath();for(let i=0;i<=80;i++){const[x,y]=proj(fn(i/80*TAU),cx,cy,R);i?g.lineTo(x,y):g.moveTo(x,y);}g.strokeStyle=c;g.lineWidth=w;g.stroke();};
+    circ(s=>[Math.cos(s),Math.sin(s),0],K.faint,1);circ(s=>[Math.sin(s),0,Math.cos(s)],'rgba(239,234,219,.15)',1);
+    [[[0,0,1],'z'],[[1,0,0],'x'],[[0,1,0],'y']].forEach(([v,l])=>{const[x,y]=proj(v,cx,cy,R*1.15);const[o,q]=proj([0,0,0],cx,cy,R);ln(g,o,q,x,y,K.faint,1);txt(g,l,x+4,y,K.dim,12);});
+    const aa=P.al*Math.PI/180,m=[Math.sin(aa),0,Math.cos(aa)];const[m1,m2]=proj(m,cx,cy,R*1.1),[m3,m4]=proj(m.map(v=>-v),cx,cy,R*1.1);ln(g,m3,m4,m1,m2,K.blue,2.5);txt(g,'+',m1+6,m2,K.blue,15);
+    const t=P.th*Math.PI/180,f=P.ph*Math.PI/180,n=[Math.sin(t)*Math.cos(f),Math.sin(t)*Math.sin(f),Math.cos(t)];const[o1,o2]=proj([0,0,0],cx,cy,R),[n1,n2]=proj(n,cx,cy,R);arrow(g,o1,o2,n1,n2,K.yellow,3);
+    if(P.B)txt(g,'B',...proj([0,0,1.3],cx,cy,R),K.pink,14);
+    const p=this.p(P),tot=cnt[0]+cnt[1];axes(g,b,'','');
+    const bw=b.w/2;[['up',p,cnt[0]],['down',1-p,cnt[1]]].forEach(([l,pp,c],i)=>{const x=b.x+i*bw+14,w=bw-28;if(tot){g.fillStyle='rgba(244,213,110,.45)';g.fillRect(x,b.y+b.h*(1-c/tot),w,b.h*c/tot);}
+      ln(g,x-3,b.y+b.h*(1-pp),x+w+3,b.y+b.h*(1-pp),K.chalk,2.5);txt(g,`${l}  ${pp.toFixed(3)}`,x+w/2,b.y+b.h+16,K.chalk,13,'center');if(tot)txt(g,String(c),x+w/2,b.y+b.h*(1-c/tot)-6,K.yellow,12,'center');});
+    txt(g,tot?`${tot} measured (bars) vs prediction (lines)`:'prediction (lines); press Measure to try it',b.x,b.y-6,K.dim,12);}};}
+
+/* ---------- Ch 7: stationary states & beats ---------- */
+function boxBeat(){let t=0;return{title:'One energy sits still; two energies slosh',
+  blurb:'A state of definite energy only rotates its phase, so its probability never moves. Mix two energies and their phases drift apart, making the particle slosh across the box.',
+  controls:[{k:'n1',label:'State',type:'select',options:[['1','n = 1'],['2','n = 2'],['3','n = 3']],value:'1'},{k:'n2',label:'mixed with',type:'select',options:[['2','n = 2'],['3','n = 3'],['4','n = 4']],value:'2'},{k:'mix',label:'Mix',min:0,max:1,value:.5,step:.01},{k:'sp',label:'Speed',min:.1,max:3,value:1,step:.1,dp:1}],
+  step(dt,P){t+=dt*P.sp*.6;},
+  draw(g,W,H,P){const n1=+P.n1,n2=+P.n2,a=Math.sqrt(1-P.mix),b=Math.sqrt(P.mix),w1=n1*n1*2.5,w2=n2*n2*2.5;
+    const ps=x=>{const f1=Math.SQRT2*Math.sin(n1*Math.PI*x),f2=Math.SQRT2*Math.sin(n2*Math.PI*x);return[a*f1*Math.cos(w1*t)+b*f2*Math.cos(w2*t),-a*f1*Math.sin(w1*t)-b*f2*Math.sin(w2*t)];};
+    const bx={x:40,y:30,w:W-80,h:H*.55},bx2={x:40,y:30+H*.62,w:W-80,h:H*.3};
+    ln(g,bx.x,bx.y-10,bx.x,bx.y+bx.h,K.chalk,4);ln(g,bx.x+bx.w,bx.y-10,bx.x+bx.w,bx.y+bx.h,K.chalk,4);ln(g,bx.x,bx.y+bx.h,bx.x+bx.w,bx.y+bx.h,K.dim,1);
+    curve(g,bx,0,1,0,4.2,x=>{const[r,i]=ps(x);return r*r+i*i;},null,0,{fill:'rgba(244,213,110,.35)'});
+    curve(g,bx,0,1,0,4.2,x=>{const[r,i]=ps(x);return r*r+i*i;},K.yellow,2.5);
+    let ex=0;for(let i=0;i<=200;i++){const x=i/200,[r,im]=ps(x);ex+=x*(r*r+im*im)/200;}const mX=bx.x+ex*bx.w;dot(g,mX,bx.y+bx.h+2,5,K.pink);txt(g,'⟨x⟩',mX,bx.y+bx.h+20,K.pink,12,'center');
+    txt(g,'probability |ψ|²',bx.x+8,bx.y+6,K.yellow,12);
+    ln(g,bx2.x,bx2.y+bx2.h/2,bx2.x+bx2.w,bx2.y+bx2.h/2,K.faint,1);
+    curve(g,bx2,0,1,-2.2,2.2,x=>ps(x)[0],K.blue,1.6);curve(g,bx2,0,1,-2.2,2.2,x=>ps(x)[1],K.pink,1.6);
+    legend(g,bx2.x+8,bx2.y+4,[[K.blue,'real part of ψ'],[K.pink,'imaginary part']]);}};}
+
+/* ---------- Ch 8: two-state Hamiltonian ---------- */
+function twoState(){let t=0;const T=14;return{title:'Two states coupled by A: amplitude flows back and forth',
+  blurb:'Start in state 1. The coupling A leaks amplitude into state 2 and back. An energy difference between the states (detuning) makes the transfer faster but incomplete.',
+  controls:[{k:'A',label:'Coupling A',min:.2,max:2,value:.6,step:.01},{k:'D',label:'Detuning Δ',min:0,max:2,value:0,step:.01},{k:'E0',label:'Average energy E₀',min:0,max:3,value:.6,step:.05},{k:'sp',label:'Speed',min:.1,max:3,value:1,step:.1,dp:1}],
+  on(){t=0;},step(dt,P){t=(t+dt*P.sp)%T;},
+  draw(g,W,H,P){const O=Math.hypot(P.A,P.D),C=tt=>{const c=Math.cos(O*tt),s=Math.sin(O*tt),e=[Math.cos(P.E0*tt),-Math.sin(P.E0*tt)];const c1=[c,-P.D/O*s],c2=[0,P.A/O*s];const mul=(z)=>[z[0]*e[0]-z[1]*e[1],z[0]*e[1]+z[1]*e[0]];return[mul(c1),mul(c2)];};
+    const[a,b]=split(W,H,.35);
+    // phasors
+    const[c1,c2]=C(t),R=Math.min(a.w/2,a.h)*.36;[[c1,'C₁',K.blue],[c2,'C₂',K.pink]].forEach(([z,l,col],i)=>{const cx=a.x+(i+.5)*a.w/2,cy=a.y+a.h/2;ring(g,cx,cy,R,K.faint,1);arrow(g,cx,cy,cx+z[0]*R,cy-z[1]*R,col,3);txt(g,`${l}  |${l}|² = ${(z[0]**2+z[1]**2).toFixed(2)}`,cx,cy+R+20,col,12,'center');});
+    axes(g,b,'time','probability');curve(g,b,0,T,0,1.05,tt=>{const[z]=C(tt);return z[0]**2+z[1]**2;},K.blue,2);const m=curve(g,b,0,T,0,1.05,tt=>{const[,z]=C(tt);return z[0]**2+z[1]**2;},K.pink,2);
+    ln(g,m.X(t),b.y,m.X(t),b.y+b.h,K.yellow,1.5);
+    txt(g,`max transfer A²/(A²+Δ²) = ${(P.A*P.A/(O*O)).toFixed(2)}`,b.x+b.w-4,b.y+14,K.chalk,12,'right');}};}
+
+/* ---------- Ch 9: ammonia ---------- */
+function ammonia(){return{title:'Ammonia: two states, split by flipping, pushed apart by a field',
+  blurb:'Nitrogen above or below the hydrogens gives two base states. Tunnelling splits them into levels 2A apart; an electric field pushes the levels further apart. An oscillating field near the gap frequency drives transitions.',
+  controls:[{k:'E',label:'Field μℰ/A',min:0,max:3,value:.8,step:.01},{k:'det',label:'Drive detuning',min:-3,max:3,value:.4,step:.01},{k:'T',label:'Time in cavity',min:1,max:8,value:4,step:.1,dp:1}],
+  draw(g,W,H,P){const[a,b]=split(W,H,.5);
+    const mol=(x,y,up)=>{const hs=[[-16,6],[16,6],[0,-4]];hs.forEach(([dx,dy])=>{ln(g,x,y+(up?-18:18),x+dx,y+dy,K.faint,1.5);dot(g,x+dx,y+dy,4,K.chalk);});dot(g,x,y+(up?-18:18),7,K.blue);};
+    mol(a.x+30,a.y+34,true);txt(g,'|1⟩',a.x+50,a.y+18,K.chalk,12);mol(a.x+100,a.y+34,false);txt(g,'|2⟩',a.x+120,a.y+18,K.chalk,12);
+    const lb={x:a.x,y:a.y+70,w:a.w,h:a.h-70};axes(g,lb,'μℰ / A','energy');
+    curve(g,lb,0,3,-3.4,3.4,x=>Math.sqrt(1+x*x),K.yellow,2.5);const m=curve(g,lb,0,3,-3.4,3.4,x=>-Math.sqrt(1+x*x),K.blue,2.5);
+    const e=Math.sqrt(1+P.E*P.E);ln(g,m.X(P.E),lb.y,m.X(P.E),lb.y+lb.h,K.faint,1);dot(g,m.X(P.E),m.Y(e),5,K.yellow);dot(g,m.X(P.E),m.Y(-e),5,K.blue);
+    arrow(g,m.X(P.E)+10,m.Y(-e),m.X(P.E)+10,m.Y(e),K.pink,1.5);txt(g,`gap ${(2*e).toFixed(2)}A`,m.X(P.E)+16,m.Y(0),K.pink,12);
+    txt(g,'E_I',lb.x+lb.w-4,m.Y(Math.sqrt(10))-8,K.yellow,12,'right');txt(g,'E_II',lb.x+lb.w-4,m.Y(-Math.sqrt(10))+16,K.blue,12,'right');
+    axes(g,b,'drive frequency − ω₀','transition chance');const f=w=>sinc(w*P.T/2)**2;const m2=curve(g,b,-3,3,0,1.1,f,K.yellow,2.5);
+    ln(g,m2.X(P.det),b.y,m2.X(P.det),b.y+b.h,K.faint,1);dot(g,m2.X(P.det),m2.Y(f(P.det)),5,K.pink);txt(g,'longer time → sharper resonance',b.x+b.w-4,b.y+14,K.dim,12,'right');}};}
+
+/* ---------- Ch 10: H2+ ---------- */
+function h2plus(){return{title:'One electron, two protons: sharing lowers the energy',
+  blurb:'The electron can sit near either proton. The sum of the two atomic states (bonding) piles charge between the protons and binds them; the difference (antibonding) does not.',
+  controls:[{k:'R',label:'Proton separation (Bohr radii)',min:.8,max:7,value:2.5,step:.05}],
+  draw(g,W,H,P){const[a,b]=split(W,H,.5);const R=P.R,S=r=>Math.exp(-r)*(1+r+r*r/3),j=r=>(1-(1+r)*Math.exp(-2*r))/r,k=r=>(1+r)*Math.exp(-r);
+    const Ep=r=>27.2*(1/r-(j(r)+k(r))/(1+S(r))),Em=r=>27.2*(1/r-(j(r)-k(r))/(1-S(r)));
+    const L=R/2+4,A=x=>Math.exp(-Math.abs(x+R/2)),B=x=>Math.exp(-Math.abs(x-R/2)),s=S(R);
+    axes(g,a,'position along the axis','');const zy=a.y+a.h*.55;const box={x:a.x,y:a.y,w:a.w,h:a.h};
+    curve(g,box,-L,L,-1.3,1.6,A,K.faint,1.2);curve(g,box,-L,L,-1.3,1.6,B,K.faint,1.2);
+    curve(g,box,-L,L,-1.3,1.6,x=>(A(x)+B(x))/Math.sqrt(2*(1+s)),K.blue,2.5);const m=curve(g,box,-L,L,-1.3,1.6,x=>(A(x)-B(x))/Math.sqrt(2*(1-s)),K.pink,2.5);
+    ln(g,a.x,m.Y(0),a.x+a.w,m.Y(0),K.faint,1);dot(g,m.X(-R/2),m.Y(0),6,K.chalk);dot(g,m.X(R/2),m.Y(0),6,K.chalk);
+    legend(g,a.x+8,a.y+10,[[K.blue,'bonding (sum)'],[K.pink,'antibonding (difference)']]);
+    axes(g,b,'separation R','energy vs. free H (eV)');const m2=curve(g,b,.8,7,-3,6,Ep,K.blue,2.5);curve(g,b,.8,7,-3,6,Em,K.pink,2.5);ln(g,b.x,m2.Y(0),b.x+b.w,m2.Y(0),K.faint,1,[4,4]);
+    ln(g,m2.X(R),b.y,m2.X(R),b.y+b.h,K.faint,1);dot(g,m2.X(R),m2.Y(Ep(R)),5,K.blue);
+    txt(g,`bonding: ${Ep(R).toFixed(2)} eV`,b.x+b.w-4,b.y+14,K.blue,12,'right');}};}
+
+/* ---------- Ch 11: photon polarization ---------- */
+function polar(){let ph=[],acc=0,c={sent:0,out:0};
+  return{title:'Photons through polarizers, one at a time',
+  blurb:'A photon either passes a polarizer or it doesn’t, with chance cos² of the angle between them; if it passes, it comes out aligned. Two crossed polarizers block everything, until you slip a third one between them.',
+  controls:[{k:'a1',label:'First',min:0,max:180,value:0,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'mid',label:'Middle polarizer',type:'check',value:0},{k:'a2',label:'Middle',min:0,max:180,value:45,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'},{k:'a3',label:'Last',min:0,max:180,value:90,step:1,dp:0,fmt:v=>v.toFixed(0)+'°'}],
+  on(){c={sent:0,out:0};},
+  step(dt,P){acc+=dt*30;while(acc>=1){acc--;ph.push({x:0,a:Math.random()*180,alive:true});c.sent++;}
+    const xs=[.25,.5,.75];for(const p of ph){const nx=p.x+dt*.22;xs.forEach((X,i)=>{if(!p.alive)return;if(i===1&&!P.mid)return;if(p.x<X&&nx>=X){const A=[P.a1,P.a2,P.a3][i];if(Math.random()<Math.cos((p.a-A)*Math.PI/180)**2)p.a=A;else p.alive=false;}});if(p.x<1&&nx>=1&&p.alive)c.out++;p.x=nx;}
+    ph=ph.filter(p=>p.alive&&p.x<1.05);},
+  draw(g,W,H,P){const cy=H*.42,x0=30,x1=W-30,X=u=>x0+(x1-x0)*u,R=Math.min(46,H*.16);
+    ln(g,x0,cy,x1,cy,K.faint,1);
+    [[.25,P.a1,true],[.5,P.a2,P.mid],[.75,P.a3,true]].forEach(([u,A,on])=>{if(!on)return;g.save();g.translate(X(u),cy);g.scale(.35,1);ring(g,0,0,R,K.chalk,4);g.restore();const r=A*Math.PI/180;ln(g,X(u)-Math.cos(r)*R*.3,cy+Math.sin(r)*R*.9,X(u)+Math.cos(r)*R*.3,cy-Math.sin(r)*R*.9,K.yellow,3);txt(g,A.toFixed(0)+'°',X(u),cy+R+18,K.chalk,12,'center');});
+    for(const p of ph){if(!p.alive)continue;const r=p.a*Math.PI/180;ln(g,X(p.x)-Math.cos(r)*3,cy+Math.sin(r)*9,X(p.x)+Math.cos(r)*3,cy-Math.sin(r)*9,K.blue,2);}
+    const d=r=>Math.cos(r*Math.PI/180)**2,th=.5*(P.mid?d(P.a2-P.a1)*d(P.a3-P.a2):d(P.a3-P.a1));
+    txt(g,`sent ${c.sent}   came out ${c.out}   measured ${(c.out/Math.max(1,c.sent)).toFixed(3)}   predicted ${th.toFixed(3)}`,x0,H-24,K.chalk,13);
+    txt(g,'unpolarized source',x0,cy-R-14,K.dim,12);}};}
+
+/* ---------- Ch 12: hyperfine levels ---------- */
+function hyperfine(){return{title:'Hydrogen’s ground state splits four ways in a magnetic field',
+  blurb:'Electron and proton spins interact, splitting the ground state by 4A (the 21 cm radio line). In a field B, two levels move in straight lines and the other two bend apart.',
+  controls:[{k:'B',label:'Field μB/A',min:0,max:4,value:1,step:.01}],
+  draw(g,W,H,P){const b={x:60,y:30,w:W-140,h:H-80};axes(g,b,'μB / A','energy / A');
+    const f=[x=>1+x,x=>1-x,x=>-1+2*Math.sqrt(1+x*x/4),x=>-1-2*Math.sqrt(1+x*x/4)],cols=[K.yellow,K.orange,K.blue,K.pink],names=['I','II','III','IV'];
+    let m;f.forEach((fn,i)=>{m=curve(g,b,0,4,-6,6,fn,cols[i],2.5);txt(g,names[i],b.x+b.w+8,m.Y(fn(4))+4,cols[i],13);});
+    ln(g,m.X(P.B),b.y,m.X(P.B),b.y+b.h,K.faint,1);f.forEach((fn,i)=>dot(g,m.X(P.B),m.Y(fn(P.B)),5,cols[i]));
+    arrow(g,m.X(0)+14,m.Y(-3),m.X(0)+14,m.Y(1),K.chalk,1.5);txt(g,'4A: the 21 cm line',m.X(0)+20,m.Y(-1),K.chalk,12);
+    txt(g,'F = 1 (three states)',m.X(0)+6,m.Y(1)-8,K.dim,12);txt(g,'F = 0',m.X(0)+6,m.Y(-3)+18,K.dim,12);}};}
+
+/* ---------- Ch 13: electron on a lattice ---------- */
+function lattice(){const N=110;let re,im,t=0;
+  const init=P=>{re=new Float64Array(N);im=new Float64Array(N);let n=0;for(let j=0;j<N;j++){const e=Math.exp(-((j-30)**2)/(2*P.w*P.w));re[j]=e*Math.cos(P.k*j);im[j]=e*Math.sin(P.k*j);n+=e*e;}n=Math.sqrt(n);for(let j=0;j<N;j++){re[j]/=n;im[j]/=n;}t=0;};
+  const Hc=(r,i,j,P)=>{const E=(P.imp&&j===75)?1.5:0;const l=j>0?1:0,rr=j<N-1?1:0;return[E*r[j]-(l?r[j-1]:0)-(rr?r[j+1]:0),E*i[j]-(l?i[j-1]:0)-(rr?i[j+1]:0)];};
+  const deriv=(r,i,P)=>{const dr=new Float64Array(N),di=new Float64Array(N);for(let j=0;j<N;j++){const[hr,hi]=Hc(r,i,j,P);dr[j]=hi;di[j]=-hr;}return[dr,di];};
+  return{title:'An electron hops from atom to atom and moves as a wave',
+  blurb:'Each atom holds amplitude that leaks to its neighbours with strength A. A packet with wavenumber k glides along the chain at speed 2A·sin k, set by the slope of the energy band. Add an impurity atom to see it partly reflect.',
+  controls:[{k:'k',label:'Wavenumber k',min:0,max:3.14,value:1.2,step:.01},{k:'w',label:'Packet width',min:2,max:15,value:6,step:.5,dp:1},{k:'imp',label:'Impurity atom',type:'check',value:0}],
+  init,on(k,P){init(P);},
+  step(dt,P){if(!re)init(P);const h=.05;for(let s=0;s<Math.round(dt*8/h);s++){const[k1r,k1i]=deriv(re,im,P);const a=re.map((v,j)=>v+h/2*k1r[j]),b=im.map((v,j)=>v+h/2*k1i[j]);const[k2r,k2i]=deriv(a,b,P);const c=re.map((v,j)=>v+h/2*k2r[j]),d=im.map((v,j)=>v+h/2*k2i[j]);const[k3r,k3i]=deriv(c,d,P);const e=re.map((v,j)=>v+h*k3r[j]),f=im.map((v,j)=>v+h*k3i[j]);const[k4r,k4i]=deriv(e,f,P);
+    for(let j=0;j<N;j++){re[j]+=h/6*(k1r[j]+2*k2r[j]+2*k3r[j]+k4r[j]);im[j]+=h/6*(k1i[j]+2*k2i[j]+2*k3i[j]+k4i[j]);}t+=h;}},
+  draw(g,W,H,P){if(!re)init(P);const b={x:24,y:40,w:W-48,h:H*.5},dx=b.w/N;let mx=0;for(let j=0;j<N;j++)mx=Math.max(mx,re[j]**2+im[j]**2);mx=Math.max(mx,.02);
+    for(let j=0;j<N;j++){const p=(re[j]**2+im[j]**2)/(mx*1.2);g.fillStyle='rgba(244,213,110,.75)';g.fillRect(b.x+j*dx,b.y+b.h*(1-p),Math.max(1,dx-1),b.h*p);dot(g,b.x+j*dx+dx/2,b.y+b.h+10,j===75&&P.imp?4:2,j===75&&P.imp?K.pink:K.chalk);}
+    txt(g,'probability on each atom',b.x,b.y-10,K.yellow,12);
+    const ib={x:b.x+b.w-200,y:b.y+b.h+42,w:180,h:H-b.h-b.y-80};if(ib.h>40){axes(g,ib,'k','E');const m=curve(g,ib,-Math.PI,Math.PI,-2.3,2.3,k=>-2*Math.cos(k),K.blue,2);const E=-2*Math.cos(P.k),s=2*Math.sin(P.k);dot(g,m.X(P.k),m.Y(E),5,K.yellow);ln(g,m.X(P.k-.6),m.Y(E-.6*s),m.X(P.k+.6),m.Y(E+.6*s),K.pink,1.5);txt(g,'band E = −2A cos k',ib.x,ib.y-6,K.blue,12);}
+    txt(g,`group speed 2A·sin k = ${(2*Math.sin(P.k)).toFixed(2)} atoms per unit time`,b.x,b.y+b.h+40,K.chalk,13);}};}
+
+/* ---------- Ch 14: semiconductors ---------- */
+function semi(){const seeds=Array.from({length:240},()=>[Math.random(),Math.random(),Math.random()*TAU]);let t=0;
+  return{title:'Electrons, holes, and what doping does to them',
+  blurb:'Heat kicks a few electrons across the band gap, leaving holes behind. Donor atoms add electrons, acceptors add holes. Whatever you do, the product n·p stays pinned to nᵢ² at a given temperature.',
+  controls:[{k:'T',label:'Temperature',min:150,max:600,value:300,step:5,dp:0,fmt:v=>v.toFixed(0)+' K'},{k:'type',label:'Doping',type:'select',options:[['i','none (intrinsic)'],['n','n-type (donors)'],['p','p-type (acceptors)']],value:'n'},{k:'Nd',label:'Dopant density',min:13,max:18,value:15,step:.1,fmt:v=>'10^'+v.toFixed(1)+' /cm³'},{k:'Eg',label:'Band gap',min:.5,max:1.6,value:1.12,step:.01,fmt:v=>v.toFixed(2)+' eV'}],
+  step(dt){t+=dt;},
+  calc(P){const kT=8.617e-5*P.T,f=(P.T/300)**1.5,ni=Math.sqrt(2.8e19*f*1.04e19*f)*Math.exp(-P.Eg/(2*kT)),N=10**P.Nd;let n=ni,p=ni;
+    if(P.type==='n'){n=N/2+Math.sqrt(N*N/4+ni*ni);p=ni*ni/n;}else if(P.type==='p'){p=N/2+Math.sqrt(N*N/4+ni*ni);n=ni*ni/p;}return{ni,n,p};},
+  draw(g,W,H,P){const[a,b]=split(W,H,.55);const{ni,n,p}=this.calc(P);const cnt=v=>clamp(Math.round(7*(Math.log10(Math.max(v,1))-8)),0,110);
+    const gapH=a.h*(.12+.3*P.Eg/1.6),bandH=(a.h-gapH)/2;
+    g.fillStyle='rgba(140,200,236,.12)';g.fillRect(a.x,a.y,a.w,bandH);g.fillStyle='rgba(244,160,184,.12)';g.fillRect(a.x,a.y+bandH+gapH,a.w,bandH);
+    ln(g,a.x,a.y+bandH,a.x+a.w,a.y+bandH,K.blue,2);ln(g,a.x,a.y+bandH+gapH,a.x+a.w,a.y+bandH+gapH,K.pink,2);
+    txt(g,'conduction band',a.x+6,a.y+14,K.blue,12);txt(g,'valence band',a.x+6,a.y+a.h-6,K.pink,12);txt(g,`gap ${P.Eg.toFixed(2)} eV`,a.x+a.w-6,a.y+bandH+gapH/2+4,K.dim,12,'right');
+    if(P.type!=='i'){const y=P.type==='n'?a.y+bandH+gapH*.12:a.y+bandH+gapH*.88;for(let i=0;i<10;i++)ln(g,a.x+20+i*(a.w-40)/10,y,a.x+34+i*(a.w-40)/10,y,K.dim,2);txt(g,P.type==='n'?'donor levels':'acceptor levels',a.x+a.w-6,y+(P.type==='n'?14:-6),K.dim,11,'right');}
+    const ne=cnt(n),nh=cnt(p);for(let i=0;i<ne;i++){const s=seeds[i];dot(g,a.x+8+s[0]*(a.w-16)+2*Math.sin(t*2+s[2]),a.y+18+s[1]*(bandH-26),2.6,K.blue);}
+    for(let i=0;i<nh;i++){const s=seeds[239-i];ring(g,a.x+8+s[0]*(a.w-16)+2*Math.cos(t*2+s[2]),a.y+bandH+gapH+8+s[1]*(bandH-26),3,K.pink,1.5);}
+    axes(g,b,'','carriers per cm³ (log)');const lo=0,hi=20,Y=v=>b.y+b.h*(1-(Math.log10(Math.max(v,1))-lo)/(hi-lo));
+    [['electrons n',n,K.blue],['holes p',p,K.pink],['nᵢ',ni,K.chalk]].forEach(([l,v,c],i)=>{const x=b.x+10+i*b.w/3,w=b.w/3-20;g.fillStyle=c;g.globalAlpha=.55;g.fillRect(x,Y(v),w,b.y+b.h-Y(v));g.globalAlpha=1;txt(g,l,x+w/2,b.y+b.h+16,c,12,'center');txt(g,v.toExponential(1),x+w/2,Y(v)-6,c,11,'center');});
+    txt(g,`n·p = ${(n*p).toExponential(2)}   nᵢ² = ${(ni*ni).toExponential(2)}`,b.x+6,b.y+12,K.chalk,12);}};}
+
+/* ---------- Ch 15: spin waves ---------- */
+function spinWave(){let t=0;return{title:'A spin wave: one flipped spin, shared along a chain',
+  blurb:'In a magnet, a single reversed spin doesn’t stay put. It spreads as a wave, which looks like each spin tipping slightly and precessing a little behind its neighbour. Energy grows as 2A(1 − cos k).',
+  controls:[{k:'k',label:'Wavenumber k',min:0,max:3.14,value:.5,step:.01},{k:'amp',label:'Tip angle',min:.1,max:.7,value:.4,step:.01},{k:'sp',label:'Speed',min:.1,max:3,value:1,step:.1,dp:1}],
+  step(dt,P){t+=dt*P.sp;},
+  draw(g,W,H,P){const n=24,y0=H*.62,L=Math.min(H*.35,90),x0=40,dx=(W-80)/(n-1),w=2*(1-Math.cos(P.k))*1.5+.25;const tips=[];
+    for(let j=0;j<n;j++){const ph=P.k*j-w*t,s=Math.sin(P.amp),c=Math.cos(P.amp),X=x0+j*dx;
+      g.save();g.translate(X,y0-L*c);g.scale(1,.32);ring(g,0,0,L*s,'rgba(239,234,219,.15)',1);g.restore();
+      const tx=X+L*s*Math.cos(ph),ty=y0-L*c+L*s*Math.sin(ph)*.32;tips.push([tx,ty]);arrow(g,X,y0,tx,ty,K.chalk,2);dot(g,X,y0,3,K.faint);}
+    g.beginPath();tips.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.strokeStyle=K.yellow;g.lineWidth=1.5;g.stroke();
+    const ib={x:W-210,y:24,w:180,h:Math.min(110,H*.22)};axes(g,ib,'k','E');const m=curve(g,ib,0,Math.PI,0,4.2,k=>2*(1-Math.cos(k)),K.blue,2);dot(g,m.X(P.k),m.Y(2*(1-Math.cos(P.k))),5,K.yellow);txt(g,'E = 2A(1 − cos k)',ib.x-120,ib.y+10,K.blue,12);}};}
+
+/* ---------- Ch 16: free wave packet spreading ---------- */
+function freePacket(){let t=0;return{title:'A free particle’s packet moves and spreads',
+  blurb:'A localized particle is a packet of waves with different momenta, so it spreads as it travels. Narrow packets spread fastest: the tighter you pin down position, the less certain the momentum.',
+  controls:[{k:'s0',label:'Starting width σ₀',min:.4,max:3,value:.8,step:.05},{k:'k0',label:'Momentum k₀',min:0,max:4,value:2,step:.05},{k:'sp',label:'Speed',min:.2,max:3,value:1,step:.1,dp:1}],
+  on(){t=0;},step(dt,P){t+=dt*P.sp*1.5;if(P.k0*t>44||t>40)t=0;},
+  draw(g,W,H,P){const s0=P.s0,k0=P.k0,b=t/(2*s0*s0),zr=1+b*b;
+    const psi=x=>{const q=(x-k0*t)**2/(4*s0*s0),wr=1/zr,wi=-b/zr,mag=Math.pow(2*Math.PI*s0*s0,-.25)*Math.pow(zr,-.25),re_=-q*wr,ph=-q*wi+k0*x-k0*k0*t/2-.5*Math.atan(b);const A=mag*Math.exp(re_);return[A*Math.cos(ph),A*Math.sin(ph)];};
+    const bx={x:30,y:40,w:W-60,h:H-90},pk=1/(Math.sqrt(2*Math.PI)*s0);axes(g,bx,'x','');
+    curve(g,bx,-10,50,-pk*.75,pk*1.1,x=>psi(x)[0]*Math.sqrt(pk)*.7,K.faint,1.2,{n:900});
+    curve(g,bx,-10,50,-pk*.75,pk*1.1,x=>{const[r,i]=psi(x);return r*r+i*i;},null,0,{fill:'rgba(244,213,110,.35)',n:600});
+    const m=curve(g,bx,-10,50,-pk*.75,pk*1.1,x=>{const[r,i]=psi(x);return r*r+i*i;},K.yellow,2.5,{n:600});
+    dot(g,m.X(k0*t),m.Y(0),5,K.pink);
+    txt(g,`width σ(t) = ${(s0*Math.sqrt(1+b*b)).toFixed(2)}   (started at ${s0.toFixed(2)})`,bx.x+6,bx.y+12,K.chalk,13);
+    legend(g,bx.x+bx.w-180,bx.y+12,[[K.yellow,'probability |ψ|²'],[K.faint,'real part of ψ'],[K.pink,'classical particle']]);}};}
+
+/* ---------- Ch 17: parity in a double well ---------- */
+function parity(){let s,hist=[];const x0=-4,x1=4;
+  const V=P=>x=>P.V0*((x/1.4)**2-1)**2+P.eps*x;
+  const init=P=>{s=Solver(200,x0,x1,V(P));const w=Math.sqrt(P.V0*8/1.96);const G=c=>x=>Math.exp(-w*(x-c)**2/2);s.init(x=>[P.start==='left'?G(-1.4)(x):G(-1.4)(x)+G(1.4)(x),0]);hist=[];};
+  return{title:'A symmetric world keeps parity; a lopsided one doesn’t',
+  blurb:'In a symmetric double well the Hamiltonian commutes with reflection, so the average parity ⟨P⟩ never changes. A particle started in one well still tunnels back and forth. Tilt the well and parity stops being conserved.',
+  controls:[{k:'start',label:'Start',type:'select',options:[['sym','symmetric (even)'],['left','left well only']],value:'sym'},{k:'V0',label:'Barrier height',min:2,max:8,value:4,step:.1,dp:1},{k:'eps',label:'Tilt',min:0,max:1.5,value:0,step:.01}],
+  init,on(k,P){if(k==='eps'){s.setV(V(P));}else init(P);},
+  step(dt,P){if(!s)init(P);for(let i=0;i<50;i++)s.step(.0012);let par=0,left=0;for(let j=0;j<s.N;j++){par+=(s.re[j]*s.re[s.N-1-j]+s.im[j]*s.im[s.N-1-j])*s.dx;if(s.x[j]<0)left+=s.prob(j)*s.dx;}hist.push([par,left]);if(hist.length>600)hist.shift();},
+  draw(g,W,H,P){if(!s)init(P);const b={x:30,y:30,w:W-60,h:H*.5};const m=mapper(b,x0,x1,0,1.6);
+    curve(g,b,x0,x1,-.5,P.V0*1.2,V(P),K.faint,1.5);drawPsi(g,b,s,1.6);txt(g,'potential',b.x+4,b.y+10,K.dim,12);
+    const hb={x:30,y:b.y+b.h+36,w:W-60,h:H-b.h-b.y-70};axes(g,hb,'time','');
+    const hm=mapper(hb,0,600,-1.05,1.05);ln(g,hb.x,hm.Y(0),hb.x+hb.w,hm.Y(0),K.faint,1);
+    [[0,K.blue],[1,K.yellow]].forEach(([k,c])=>{g.beginPath();hist.forEach((h,i)=>{const X=hm.X(i),Y=hm.Y(h[k]);i?g.lineTo(X,Y):g.moveTo(X,Y);});g.strokeStyle=c;g.lineWidth=2;g.stroke();});
+    const h=hist[hist.length-1]||[0,0];legend(g,hb.x+8,hb.y+4,[[K.blue,`parity ⟨P⟩ = ${h[0].toFixed(3)}`],[K.yellow,`chance in left well = ${h[1].toFixed(3)}`]]);}};}
+
+/* ---------- Ch 18: angular momentum ---------- */
+function angMom(){let t=0;const Plm=(l,m,x)=>{let pmm=1;const s=Math.sqrt(Math.max(0,1-x*x));for(let i=1;i<=m;i++)pmm*=-(2*i-1)*s;if(l===m)return pmm;let p1=x*(2*m+1)*pmm;if(l===m+1)return p1;let p2;for(let ll=m+2;ll<=l;ll++){p2=((2*ll-1)*x*p1-(ll+m-1)*pmm)/(ll-m);pmm=p1;p1=p2;}return p1;};
+  return{title:'Angular momentum comes in steps along any axis you pick',
+  blurb:'For quantum number l, the z-component can only be m = −l … l, while the total length is √(l(l+1)), always longer than any allowed Lz. The leftover shows up as a cone of uncertainty around the axis.',
+  controls:[{k:'l',label:'l',min:0,max:4,value:2,step:1,dp:0},{k:'m',label:'m',min:-2,max:2,value:1,step:1,dp:0}],
+  on(k,P){if(k==='l'){ui.set('m',{min:-P.l,max:P.l,value:clamp(P.m,-P.l,P.l)});}},
+  step(dt){t+=dt;},
+  draw(g,W,H,P){const[a,b]=split(W,H,.5);const l=P.l|0,m=P.m|0,Lm=Math.sqrt(l*(l+1)),cx=a.x+a.w/2,cy=a.y+a.h*.62,u=Math.min(a.h*.55,a.w*.4)/Math.max(Lm,1);
+    ln(g,cx,a.y+6,cx,a.y+a.h,K.faint,1);txt(g,'z',cx+6,a.y+14,K.dim,12);
+    for(let k=-l;k<=l;k++){ln(g,cx-a.w*.42,cy-k*u,cx+a.w*.42,cy-k*u,k===m?K.yellow:'rgba(239,234,219,.18)',k===m?1.5:1,[3,4]);txt(g,'m='+k,cx+a.w*.44,cy-k*u+4,k===m?K.yellow:K.dim,11);}
+    if(l>0){const r=Math.sqrt(Math.max(0,Lm*Lm-m*m))*u;g.save();g.translate(cx,cy-m*u);g.scale(1,.28);ring(g,0,0,r,K.faint,1);g.restore();
+      const px=cx+r*Math.cos(t*1.2),py=cy-m*u+r*.28*Math.sin(t*1.2);arrow(g,cx,cy,px,py,K.blue,3);ln(g,cx-r,cy-m*u,cx,cy,K.faint,1);ln(g,cx+r,cy-m*u,cx,cy,K.faint,1);}
+    else dot(g,cx,cy,5,K.blue);
+    txt(g,`|L| = √(l(l+1)) = ${Lm.toFixed(2)}   Lz = ${m}`,a.x,a.y+a.h+16,K.chalk,12);
+    // polar plot of |Y_lm|^2 in the xz-plane
+    const bc=[b.x+b.w/2,b.y+b.h/2],R=Math.min(b.w,b.h)*.46;let mx=0;const f=th=>Plm(l,Math.abs(m),Math.cos(th))**2;for(let i=0;i<=200;i++)mx=Math.max(mx,f(i/200*Math.PI));
+    ln(g,bc[0],b.y,bc[0],b.y+b.h,K.faint,1);ln(g,b.x,bc[1],b.x+b.w,bc[1],K.faint,1);
+    g.beginPath();for(let i=0;i<=400;i++){const th=i/400*TAU,rr=f(th)/mx*R;const X=bc[0]+rr*Math.sin(th),Y=bc[1]-rr*Math.cos(th);i?g.lineTo(X,Y):g.moveTo(X,Y);}g.closePath();g.fillStyle='rgba(244,213,110,.3)';g.fill();g.strokeStyle=K.yellow;g.lineWidth=2;g.stroke();
+    txt(g,'|Y(l,m)|² vs. angle from z',b.x,b.y-4,K.yellow,12);}};}
+
+/* ---------- Ch 19: hydrogen orbitals ---------- */
+function hydrogen(){let pts=[],key='';const Lag=(k,al,x)=>{if(k===0)return 1;let a=1,b=1+al-x;for(let i=1;i<k;i++){const c=((2*i+1+al-x)*b-(i+al)*a)/(i+1);a=b;b=c;}return b;};
+  const Pl=(l,x)=>{if(l===0)return 1;let a=1,b=x;for(let i=2;i<=l;i++){const c=((2*i-1)*x*b-(i-1)*a)/i;a=b;b=c;}return b;};
+  const R=(n,l,r)=>{const p=2*r/n;return Math.pow(p,l)*Math.exp(-p/2)*Lag(n-l-1,2*l+1,p);};
+  return{title:'Hydrogen’s electron clouds, and the shells they make',
+  blurb:'Each state (n, l) has n − l − 1 radial nodes and l angular nodes. Energy depends only on n, −13.6/n² eV. The dots are samples of where the electron might be found in a slice through the atom (m = 0).',
+  controls:[{k:'n',label:'n',min:1,max:4,value:3,step:1,dp:0},{k:'l',label:'l',min:0,max:2,value:1,step:1,dp:0}],
+  on(k,P){if(k==='n'){ui.set('l',{max:P.n-1,value:Math.min(P.l,P.n-1)});}},
+  sample(P){const n=P.n|0,l=P.l|0,L=4*n*n+4;const d=(x,z)=>{const r=Math.hypot(x,z)+1e-9;return(R(n,l,r)*Pl(l,z/r))**2;};let mx=0;for(let i=0;i<4000;i++){mx=Math.max(mx,d((Math.random()*2-1)*L,(Math.random()*2-1)*L));}
+    for(let i=0;i<=60;i++)for(let j=0;j<=60;j++)mx=Math.max(mx,d(-L+i/30*L,-L+j/30*L));pts=[];let tries=0;while(pts.length<3500&&tries<400000){tries++;const x=(Math.random()*2-1)*L,z=(Math.random()*2-1)*L;if(Math.random()*mx<d(x,z))pts.push([x,z]);}key=n+','+l;return L;},
+  draw(g,W,H,P){const n=P.n|0,l=Math.min(P.l|0,n-1),L=4*n*n+4;if(key!==n+','+l)this.sample({n,l});const[a,b]=split(W,H,.5);
+    const S=Math.min(a.w,a.h)/2,cx=a.x+a.w/2,cy=a.y+a.h/2;g.fillStyle='rgba(244,213,110,.55)';for(const[x,z]of pts)g.fillRect(cx+x/L*S,cy-z/L*S,1.5,1.5);dot(g,cx,cy,2.5,K.pink);
+    txt(g,`${n}${'spdf'[l]}   E = ${(-13.6/(n*n)).toFixed(2)} eV`,a.x,a.y+a.h+16,K.chalk,13);txt(g,'z',cx+4,a.y+10,K.dim,12);
+    axes(g,b,'distance from nucleus (Bohr radii)','radial probability r²R²');const rmax=L;let mx=0;for(let i=1;i<=400;i++){const r=i/400*rmax;mx=Math.max(mx,(r*R(n,l,r))**2);}
+    curve(g,b,0,rmax,0,mx*1.1,r=>(r*R(n,l,r))**2,null,0,{fill:'rgba(140,200,236,.3)'});curve(g,b,0,rmax,0,mx*1.1,r=>(r*R(n,l,r))**2,K.blue,2.5);
+    txt(g,`${n-l-1} radial node${n-l-1===1?'':'s'}, ${l} angular`,b.x+b.w-4,b.y+12,K.chalk,12,'right');}};}
+
+/* ---------- Ch 20: operators & expectation values ---------- */
+function operators(){let s,trail=[];const init=P=>{s=Solver(256,-8,8,x=>x*x/2);s.init(x=>[Math.exp(-((x-P.x0)**2)/(2*P.w*P.w)),0]);trail=[];};
+  const ev=()=>{let x=0,p=0,x2=0,Hh=0;const c=1/(2*s.dx*s.dx);for(let j=1;j<s.N-1;j++){const pr=s.prob(j);x+=s.x[j]*pr*s.dx;x2+=s.x[j]**2*pr*s.dx;
+    const dr=(s.re[j+1]-s.re[j-1])/(2*s.dx),di=(s.im[j+1]-s.im[j-1])/(2*s.dx);p+=(s.re[j]*di-s.im[j]*dr)*s.dx;
+    const hr=-(s.re[j+1]-2*s.re[j]+s.re[j-1])*c+s.V[j]*s.re[j],hi=-(s.im[j+1]-2*s.im[j]+s.im[j-1])*c+s.V[j]*s.im[j];Hh+=(s.re[j]*hr+s.im[j]*hi)*s.dx;}return{x,p,dx:Math.sqrt(Math.max(0,x2-x*x)),E:Hh};};
+  return{title:'Averages follow the classical orbit',
+  blurb:'Compute ⟨x⟩ = ∫ψ*xψ and ⟨p⟩ = ∫ψ*(−iħ d/dx)ψ for a packet in a spring potential. The averages trace the classical ellipse in phase space. Change the starting width and the packet breathes, but the averages don’t care.',
+  controls:[{k:'x0',label:'Start offset',min:0,max:3.5,value:2.5,step:.05},{k:'w',label:'Start width',min:.4,max:2,value:1,step:.05}],
+  init,on(k,P){init(P);},
+  step(dt,P){if(!s)init(P);for(let i=0;i<18;i++)s.step(.004);const e=ev();trail.push([e.x,e.p]);if(trail.length>1200)trail.shift();this.e=e;},
+  draw(g,W,H,P){if(!s)init(P);const e=this.e||ev(),[a,b]=split(W,H,.58);curve(g,a,-8,8,0,10,x=>x*x/2,K.faint,1.5);const m=drawPsi(g,a,s,.9);
+    ln(g,mapper(a,-8,8,0,1).X(e.x),a.y,mapper(a,-8,8,0,1).X(e.x),a.y+a.h,K.pink,2);txt(g,'⟨x⟩',mapper(a,-8,8,0,1).X(e.x)+4,a.y+12,K.pink,12);
+    txt(g,`⟨x⟩ = ${e.x.toFixed(2)}   ⟨p⟩ = ${e.p.toFixed(2)}   Δx = ${e.dx.toFixed(2)}   ⟨H⟩ = ${e.E.toFixed(3)}`,a.x,a.y+a.h+16,K.chalk,12);
+    const r=Math.max(P.x0,.5)*1.3,c=[b.x+b.w/2,b.y+b.h/2],S=Math.min(b.w,b.h)/2/r;axes(g,{x:b.x,y:b.y,w:b.w,h:b.h},'⟨x⟩','⟨p⟩');ring(g,c[0],c[1],P.x0*S,K.faint,1);
+    g.beginPath();trail.forEach(([x,p],i)=>{const X=c[0]+x*S,Y=c[1]-p*S;i?g.lineTo(X,Y):g.moveTo(X,Y);});g.strokeStyle=K.blue;g.lineWidth=2;g.stroke();dot(g,c[0]+e.x*S,c[1]-e.p*S,5,K.yellow);
+    txt(g,'phase space: the faint circle is the classical orbit',b.x,b.y-4,K.dim,11);}};}
+
+/* ---------- Ch 21: superconductivity ---------- */
+function supercond(){let t=0,hist=[];return{title:'Superconductors: one big wavefunction',
+  blurb:'All the paired electrons share one phase. Across a thin barrier (a Josephson junction) the current is I₀ sin δ, and a voltage makes δ spin at 2eV/ħ. Two junctions in a loop interfere like two slits, with flux as the knob.',
+  controls:[{k:'phi',label:'Flux Φ/Φ₀',min:-2,max:2,value:.3,step:.01},{k:'V',label:'Junction voltage',min:0,max:2,value:.5,step:.01,fmt:v=>(v*10).toFixed(1)+' μV'}],
+  step(dt,P){t+=dt;hist.push(Math.sin(.8+P.V*TAU*t*1.2));if(hist.length>400)hist.shift();},
+  draw(g,W,H,P){const[a,b]=split(W,H,.5);
+    const rb={x:a.x,y:a.y,w:a.w,h:a.h*.38},cx=rb.x+rb.w/2,cy=rb.y+rb.h/2,R=Math.min(rb.w,rb.h)*.42;
+    ring(g,cx,cy,R,K.chalk,6);g.fillStyle=getComputedStyle(document.getElementById('stage')).backgroundColor;[[cx-R,cy],[cx+R,cy]].forEach(([x,y])=>{g.fillRect(x-5,y-6,10,12);ln(g,x-4,y-5,x+4,y+5,K.pink,2);ln(g,x+4,y-5,x-4,y+5,K.pink,2);});
+    const n=Math.min(6,Math.round(Math.abs(P.phi)*3));for(let i=0;i<n;i++)dot(g,cx-R*.5+i*R/Math.max(n-1,1)*(n>1?1:0)+(n===1?R*.5:0),cy,3,K.blue);txt(g,'flux Φ through the loop',cx,cy+R+18,K.blue,12,'center');
+    const pb={x:a.x,y:a.y+a.h*.5,w:a.w,h:a.h*.5};axes(g,pb,'Φ/Φ₀','max supercurrent');const m=curve(g,pb,-2,2,0,1.1,x=>Math.abs(Math.cos(Math.PI*x)),K.yellow,2.5);dot(g,m.X(P.phi),m.Y(Math.abs(Math.cos(Math.PI*P.phi))),5,K.pink);
+    axes(g,b,'time','junction current I/I₀');const hm=mapper(b,0,400,-1.2,1.2);ln(g,b.x,hm.Y(0),b.x+b.w,hm.Y(0),K.faint,1);g.beginPath();hist.forEach((v,i)=>{const X=hm.X(i),Y=hm.Y(v);i?g.lineTo(X,Y):g.moveTo(X,Y);});g.strokeStyle=K.blue;g.lineWidth=2;g.stroke();
+    txt(g,P.V<.005?'no voltage: a steady current flows with no push':`AC current at 2eV/h ≈ ${(P.V*10*483.6/1000).toFixed(2)} GHz`,b.x+b.w-4,b.y+14,K.chalk,12,'right');}};}
+
+const CHAPTERS=[
+ {n:1,t:'Quantum Behavior',demo:dSlit},
+ {n:2,t:'The Relation of Wave and Particle Viewpoints',demo:packet},
+ {n:3,t:'Probability Amplitudes',demo:phasors},
+ {n:4,t:'Identical Particles',demo:identical},
+ {n:5,t:'Spin One',demo:spinOne},
+ {n:6,t:'Spin One-Half',demo:spinHalf},
+ {n:7,t:'The Dependence of Amplitudes on Time',demo:boxBeat},
+ {n:8,t:'The Hamiltonian Matrix',demo:twoState},
+ {n:9,t:'The Ammonia Maser',demo:ammonia},
+ {n:10,t:'Other Two-State Systems',demo:h2plus},
+ {n:11,t:'More Two-State Systems',demo:polar},
+ {n:12,t:'The Hyperfine Splitting in Hydrogen',demo:hyperfine},
+ {n:13,t:'Propagation in a Crystal Lattice',demo:lattice},
+ {n:14,t:'Semiconductors',demo:semi},
+ {n:15,t:'The Independent Particle Approximation',demo:spinWave},
+ {n:16,t:'The Dependence of Amplitudes on Position',demo:freePacket},
+ {n:17,t:'Symmetry and Conservation Laws',demo:parity},
+ {n:18,t:'Angular Momentum',demo:angMom},
+ {n:19,t:'The Hydrogen Atom and the Periodic Table',demo:hydrogen},
+ {n:20,t:'Operators',demo:operators},
+ {n:21,t:'The Schrödinger Equation in a Classical Context: A Seminar on Superconductivity',demo:supercond},
+];
+
+</script>
+<script>
+/* ============ app shell ============ */
+const cv=document.getElementById('cv'),g=cv.getContext('2d'),stage=document.getElementById('stage');
+let W=0,H=0,cur=null,P={},paused=matchMedia('(prefers-reduced-motion: reduce)').matches,chIdx=0,last=performance.now();
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+function resize(){const r=stage.getBoundingClientRect(),dpr=window.devicePixelRatio||1;W=r.width-12;H=r.height-12;if(W<10||H<10)return;cv.width=W*dpr;cv.height=H*dpr;g.setTransform(dpr,0,0,dpr,0,0);}
+new ResizeObserver(resize).observe(stage);
+
+const sel=document.getElementById('chapSel');
+CHAPTERS.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${c.n}. ${c.t}`;sel.appendChild(o);});
+sel.onchange=()=>loadChapter(+sel.value);
+document.getElementById('prevCh').onclick=()=>loadChapter(Math.max(0,chIdx-1));
+document.getElementById('nextCh').onclick=()=>loadChapter(Math.min(CHAPTERS.length-1,chIdx+1));
+
+const ctlBox=document.getElementById('controls');let ctlEls={};
+const ui={set(k,o){const e=ctlEls[k];if(!e)return;const inp=e.input;if(o.min!=null)inp.min=o.min;if(o.max!=null)inp.max=o.max;if(o.value!=null){inp.value=o.value;P[k]=+o.value;if(e.out)e.out.textContent=e.f(P[k]);}}};
+
+function buildControls(d){ctlBox.innerHTML='';ctlEls={};P={};
+  const bar=document.createElement('div');bar.className='ctl-row';
+  const pb=document.createElement('button');pb.textContent=paused?'Play':'Pause';pb.onclick=()=>{paused=!paused;pb.textContent=paused?'Play':'Pause';};
+  const rb=document.createElement('button');rb.textContent='Restart';rb.onclick=()=>startDemo(true);
+  bar.append(pb,rb);ctlBox.appendChild(bar);
+  (d.controls||[]).forEach(c=>{const w=document.createElement('label');w.className='ctl';
+    if(c.type==='button'){const b=document.createElement('button');b.textContent=c.label;b.onclick=()=>d.on&&d.on(c.k,P);ctlBox.appendChild(b);return;}
+    const lab=document.createElement('span');lab.textContent=c.label;
+    if(c.type==='check'){const i=document.createElement('input');i.type='checkbox';i.checked=!!c.value;P[c.k]=!!c.value;i.onchange=()=>{P[c.k]=i.checked;d.on&&d.on(c.k,P);};w.append(i,lab);ctlEls[c.k]={input:i};}
+    else if(c.type==='select'){const s=document.createElement('select');c.options.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;s.appendChild(o);});s.value=c.value;P[c.k]=c.value;s.onchange=()=>{P[c.k]=s.value;d.on&&d.on(c.k,P);};w.append(lab,s);ctlEls[c.k]={input:s};}
+    else{const i=document.createElement('input');i.type='range';i.min=c.min;i.max=c.max;i.step=c.step||(c.max-c.min)/100;i.value=c.value;P[c.k]=+c.value;
+      const out=document.createElement('output');const f=c.fmt||(v=>(+v).toFixed(c.dp??2));out.textContent=f(P[c.k]);
+      i.oninput=()=>{P[c.k]=+i.value;out.textContent=f(P[c.k]);d.on&&d.on(c.k,P);};w.append(lab,i,out);ctlEls[c.k]={input:i,out,f};}
+    ctlBox.appendChild(w);});
+}
+function startDemo(keepParams){const c=CHAPTERS[chIdx];const saved=keepParams?{...P}:null;cur=c.demo();buildControls(cur);
+  if(saved)for(const k in saved)if(k in P){if(ctlEls[k]){const e=ctlEls[k];if(e.input.type==='checkbox')e.input.checked=saved[k];else e.input.value=saved[k];if(e.out)e.out.textContent=e.f(+saved[k]);}P[k]=saved[k];}
+  cur.init&&cur.init(P);}
+function loadChapter(i,fromBook){chIdx=i;sel.value=i;const c=CHAPTERS[i];
+  document.getElementById('chLabel').textContent=`Chapter ${c.n} · ${c.t}`;
+  startDemo(false);document.getElementById('demoTitle').textContent=cur.title;document.getElementById('demoBlurb').textContent=cur.blurb;
+  document.getElementById('onlineLink').href=`https://www.feynmanlectures.caltech.edu/III_${String(c.n).padStart(2,'0')}.html`;
+  document.getElementById('onlineLink').textContent=`Read chapter ${c.n} free on the Caltech site`;
+  document.getElementById('markStart').textContent=`Fix start of ch. ${c.n}`;
+  store.set('fl3-ch',i);if(pdf&&!fromBook){const p=startFor(c.n);if(p)goPage(p);}}
+
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(cur&&W>10){if(!paused&&cur.step)cur.step(dt,P);g.clearRect(0,0,W,H);cur.draw(g,W,H,P);}
+  requestAnimationFrame(frame);}
+
+/* ============ PDF side ============ */
+let pdf=null,page=1,els=[],pageW=0,progScroll=false,userMoved=false,hold=false,io=null;
+const pagesEl=document.getElementById('pages'),listEl=document.getElementById('pageList'),fileIn=document.getElementById('fileIn');
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+document.getElementById('openPdf').onclick=document.getElementById('openOther').onclick=()=>fileIn.click();
+fileIn.onchange=async()=>{const f=fileIn.files[0];if(!f)return;const buf=await f.arrayBuffer();idbPut(buf.slice(0));openPdf(buf);};
+async function openPdf(buf){if(!window.pdfjsLib){alert('The PDF viewer could not load. Check your connection and reload.');return;}
+  try{pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;}catch(e){alert('That file could not be opened as a PDF.');return;}
+  document.getElementById('empty').classList.add('hidden');listEl.classList.remove('hidden');
+  document.getElementById('pgTotal').textContent='of '+pdf.numPages;
+  await layout();userMoved=false;goPage(startFor(CHAPTERS[chIdx].n)||store.get('fl3-page',1));detectChapters();}
+/* continuous scroll: every page gets a placeholder; only pages near the view are drawn */
+async function layout(){const v=(await pdf.getPage(1)).getViewport({scale:1}),ratio=v.height/v.width;
+  if(io)io.disconnect();listEl.innerHTML='';els=[];pageW=Math.max(200,pagesEl.clientWidth-24);
+  io=new IntersectionObserver(es=>es.forEach(e=>{const p=+e.target.dataset.p;if(e.isIntersecting)renderPage(p);else if(e.target.firstChild){e.target.innerHTML='';e.target.dataset.r='';}}),{root:pagesEl,rootMargin:'1200px 0px'});
+  for(let p=1;p<=pdf.numPages;p++){const d=document.createElement('div');d.className='pg';d.dataset.p=p;d.style.width=pageW+'px';d.style.height=(pageW*ratio)+'px';listEl.appendChild(d);els.push(d);io.observe(d);}}
+async function renderPage(p){const d=els[p-1];if(!d||d.dataset.r)return;d.dataset.r='1';
+  try{const pg=await pdf.getPage(p),v=pg.getViewport({scale:1}),sc=pageW/v.width,dpr=Math.min(2,window.devicePixelRatio||1),vp=pg.getViewport({scale:sc*dpr});
+    const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;d.innerHTML='';d.appendChild(c);
+    await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;}catch(e){d.dataset.r='';}}
+function goPage(p){if(!pdf||!els.length)return;page=clamp(p|0,1,pdf.numPages);progScroll=true;pagesEl.scrollTop=els[page-1].offsetTop-12;showPage();}
+function showPage(){document.getElementById('pgNum').value=page;store.set('fl3-page',page);}
+function pageAtView(){const y=pagesEl.scrollTop+pagesEl.clientHeight*.3;let lo=0,hi=els.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(els[m].offsetTop<=y)lo=m;else hi=m-1;}return lo+1;}
+function chapterAt(p){let best=-1,bs=0;CHAPTERS.forEach((c,i)=>{const s=startFor(c.n);if(s&&s<=p&&s>=bs){best=i;bs=s;}});return best;}
+function syncDemo(){if(hold)return;const i=chapterAt(page);if(i>=0&&i!==chIdx)loadChapter(i,true);}
+let scrollRaf=0;pagesEl.addEventListener('scroll',()=>{if(scrollRaf||!els.length)return;scrollRaf=requestAnimationFrame(()=>{scrollRaf=0;
+  if(!progScroll)userMoved=true;progScroll=false;const p=pageAtView();if(p!==page){page=p;showPage();}syncDemo();});});
+document.getElementById('holdDemo').onclick=e=>{hold=!hold;e.target.setAttribute('aria-pressed',hold);e.target.textContent=hold?'Demo held':'Hold demo';if(!hold)syncDemo();};
+/* ---- automatic chapter → page mapping ---- */
+let auto={},scanId=0;
+const norm=s=>(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const KEYS=CHAPTERS.map(c=>c.n===21?'superconductivity':norm(c.t));
+/* chapter start pages for the reader's own 329-page copy */
+const KNOWN={329:[7,18,26,39,54,71,85,98,112,127,144,168,184,197,209,222,238,254,275,293,310]};
+function startFor(n){const m=store.get('fl3-starts',{});return m[n]||auto[n]||null;}
+const setStatus=t=>document.getElementById('autoStatus').textContent=t;
+async function destPage(d){try{if(typeof d==='string')d=await pdf.getDestination(d);if(!d)return null;const r=d[0];return typeof r==='number'?r+1:(await pdf.getPageIndex(r))+1;}catch(e){return null;}}
+function bestKey(text){let best=0;KEYS.forEach((k,i)=>{if(text.includes(k)&&(!best||k.length>KEYS[best-1].length))best=i+1;});return best;}
+async function detectChapters(){const my=++scanId,doc=pdf;
+  const kn=KNOWN[doc.numPages];if(kn){auto={};kn.forEach((p,i)=>auto[i+1]=p);done();return;}const id='fl3-auto-'+doc.numPages+'-'+((doc.fingerprints&&doc.fingerprints[0])||'');
+  const cached=store.get(id,null);if(cached){auto=cached;done();return;}
+  auto={};
+  // 1) the PDF's own bookmarks, if it has them
+  try{const ol=await doc.getOutline();if(ol){const flat=[];const walk=a=>a.forEach(i=>{flat.push(i);if(i.items&&i.items.length)walk(i.items);});walk(ol);
+    for(const it of flat){const n=bestKey(norm(it.title));if(n&&!auto[n]){const p=await destPage(it.dest);if(p)auto[n]=p;}}
+    for(const it of flat){const m=(it.title||'').match(/^\s*(?:chapter\s*)?(\d{1,2})(?![\d\-–.]\s*\d)\b/i);const n=m?+m[1]:0;if(n>=1&&n<=21&&!auto[n]){const p=await destPage(it.dest);if(p)auto[n]=p;}}}}catch(e){}
+  if(my!==scanId)return;
+  // 2) otherwise read the pages and look for chapter titles set in large type
+  if(Object.keys(auto).length<18){const found={...auto};
+    for(let p=1;p<=doc.numPages&&Object.keys(found).length<21;p++){if(my!==scanId)return;
+      if(p%5===1)setStatus(`Finding chapters… ${Math.round(p/doc.numPages*100)}%`);
+      let items;try{const pg=await doc.getPage(p);items=(await pg.getTextContent()).items.filter(i=>i.str&&i.str.trim());pg.cleanup();}catch(e){continue;}
+      if(!items.length)continue;
+      const sz=i=>Math.hypot(i.transform[2],i.transform[3]),hs=items.map(sz).sort((a,b)=>a-b),med=hs[hs.length>>1];
+      const all=norm(items.map(i=>i.str).join(''));if(KEYS.filter(k=>all.includes(k)).length>=3)continue; // contents page
+      const n=bestKey(norm(items.filter(i=>sz(i)>=med*1.3).map(i=>i.str).join('')));
+      if(n&&!found[n]){found[n]=p;auto={...found};if(!userMoved&&n===CHAPTERS[chIdx].n&&!store.get('fl3-starts',{})[n])goPage(p);}}
+    auto=found;}
+  if(my!==scanId)return;store.set(id,auto);done();
+  function done(){const k=Object.keys(auto).length;setStatus(k?`${k} of 21 chapters linked`:'Chapters not found in this PDF; use Fix chapter start');if(!userMoved){const p=startFor(CHAPTERS[chIdx].n);if(p)goPage(p);}else syncDemo();}}
+document.getElementById('pgPrev').onclick=()=>goPage(page-1);
+document.getElementById('pgNext').onclick=()=>goPage(page+1);
+document.getElementById('pgNum').onchange=e=>goPage(+e.target.value);
+document.getElementById('markStart').onclick=()=>{if(!pdf)return;const m=store.get('fl3-starts',{});m[CHAPTERS[chIdx].n]=page;store.set('fl3-starts',m);const b=document.getElementById('markStart');b.textContent='Saved';setTimeout(()=>b.textContent=`Fix start of ch. ${CHAPTERS[chIdx].n}`,1200);};
+let rT;new ResizeObserver(()=>{clearTimeout(rT);rT=setTimeout(async()=>{if(!pdf||Math.abs(pagesEl.clientWidth-24-pageW)<8)return;const keep=page;await layout();goPage(keep);},200);}).observe(pagesEl);
+document.addEventListener('keydown',e=>{const t=document.activeElement&&document.activeElement.tagName;if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA')return;
+  if(e.key==='ArrowRight')goPage(page+1);else if(e.key==='ArrowLeft')goPage(page-1);else if(e.key===']')loadChapter(Math.min(CHAPTERS.length-1,chIdx+1));else if(e.key==='[')loadChapter(Math.max(0,chIdx-1));});
+/* keep the opened PDF in this browser */
+function idb(){return new Promise((res,rej)=>{try{const r=indexedDB.open('fl3',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}catch(e){rej(e);}});}
+async function idbPut(buf){try{const d=await idb();d.transaction('f','readwrite').objectStore('f').put(buf,'pdf');}catch(e){}}
+async function idbGet(){try{const d=await idb();return await new Promise(r=>{const q=d.transaction('f').objectStore('f').get('pdf');q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);});}catch(e){return null;}}
+
+loadChapter(clamp(store.get('fl3-ch',0),0,CHAPTERS.length-1));
+requestAnimationFrame(frame);
+idbGet().then(b=>{if(b)openPdf(b);});
+</script>
+</body>
+</html>
